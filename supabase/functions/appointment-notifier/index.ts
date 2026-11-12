@@ -25,6 +25,7 @@
 import { serviceRoleClient } from "../_shared/supabaseClients.ts";
 import { sendEmail, renderEmail, SITE_URL, type SendEmailResult } from "../_shared/email.ts";
 import { jsonResponse } from "../_shared/cors.ts";
+import { formatSessionTime, resolveAppointmentWhatsApp, sendWhatsAppTemplate } from "../_shared/whatsapp.ts";
 
 // No review-request CTA on 'completed' — a finished counselling session
 // isn't a delivered product, and the customer already gets asked for
@@ -80,6 +81,8 @@ type AppointmentRecord = {
   id: string;
   user_id: string | null;
   guest_email: string | null;
+  guest_name: string | null;
+  guest_phone: string | null;
   expert_id: string | null;
   status: string;
   payment_status: string;
@@ -179,6 +182,22 @@ Deno.serve(async (req) => {
         })
         .eq("id", record.id);
       sentAny = true;
+    }
+  }
+
+  // WhatsApp "booking received" to the customer, once, when payment lands.
+  // Needs the mindcafe_appointment_booked Utility template approved in
+  // MSG91 with body variables: first name, session type, requested time.
+  // Off unless the WHATSAPP_APPOINTMENT_UPDATES secret is "on"; failures
+  // are logged and never affect the emails.
+  if (messageKey === "pending" && Deno.env.get("WHATSAPP_APPOINTMENT_UPDATES") === "on") {
+    const { to, name } = await resolveAppointmentWhatsApp(sb, record);
+    if (!to) {
+      console.log("WhatsApp skipped — no valid phone for appointment", record.id);
+    } else {
+      const result = await sendWhatsAppTemplate(to, "mindcafe_appointment_booked", [name, categoryLabel, formatSessionTime(record.scheduled_at)]);
+      if (!result.ok) console.error("WhatsApp appointment booked failed", record.id, result.reason);
+      sentAny = sentAny || result.ok;
     }
   }
 
