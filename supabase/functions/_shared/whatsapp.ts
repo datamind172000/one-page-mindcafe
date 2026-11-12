@@ -28,24 +28,40 @@ export function formatSessionTime(iso: string | null): string {
 }
 
 // Booking's WhatsApp number and first name — guest phone, then profile/
-// login phone. Same order of preference as orders, minus the address.
+// login phone, then a saved delivery address (default first, else newest).
+// The address matters: an email-login account often has no phone on its
+// profile, but anyone who has ordered Feelz has one on their address.
 export async function resolveAppointmentWhatsApp(
   sb: SupabaseClient,
   appointment: { user_id: string | null; guest_phone?: string | null; guest_name?: string | null },
 ): Promise<{ to: string | null; name: string }> {
   let profilePhone: string | null = null;
   let authPhone: string | null = null;
+  let addressPhone: string | null = null;
   let fullName = appointment.guest_name ?? "";
   if (appointment.user_id) {
-    const [{ data: profile }, { data: authUser }] = await Promise.all([
+    const [{ data: profile }, { data: authUser }, { data: address }] = await Promise.all([
       sb.from("profiles").select("phone, full_name").eq("id", appointment.user_id).maybeSingle(),
       sb.auth.admin.getUserById(appointment.user_id),
+      sb
+        .from("addresses")
+        .select("phone, full_name")
+        .eq("user_id", appointment.user_id)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
     profilePhone = profile?.phone ?? null;
     authPhone = authUser?.user?.phone ?? null;
-    fullName = profile?.full_name || fullName;
+    addressPhone = address?.phone ?? null;
+    fullName = profile?.full_name || address?.full_name || fullName;
   }
-  const to = toWhatsAppNumber(appointment.guest_phone) ?? toWhatsAppNumber(profilePhone) ?? toWhatsAppNumber(authPhone);
+  const to =
+    toWhatsAppNumber(appointment.guest_phone) ??
+    toWhatsAppNumber(profilePhone) ??
+    toWhatsAppNumber(authPhone) ??
+    toWhatsAppNumber(addressPhone);
   return { to, name: fullName.trim().split(/\s+/)[0] || "there" };
 }
 
