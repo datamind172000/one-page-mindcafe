@@ -20,6 +20,7 @@
 import { serviceRoleClient } from "../_shared/supabaseClients.ts";
 import { sendEmail, renderEmail, SITE_URL } from "../_shared/email.ts";
 import { jsonResponse } from "../_shared/cors.ts";
+import { formatSessionTime, resolveAppointmentWhatsApp, sendWhatsAppTemplate } from "../_shared/whatsapp.ts";
 
 type ReminderWindow = "24h" | "1h";
 
@@ -30,7 +31,9 @@ const WINDOWS: { key: ReminderWindow; hoursAhead: number; column: "reminder_24h_
 
 type AppointmentRow = {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  guest_name: string | null;
+  guest_phone: string | null;
   expert_id: string | null;
   therapy_category: string;
   scheduled_at: string;
@@ -50,8 +53,9 @@ async function remindOne(
 
   let sentAny = false;
 
-  const { data: authUser } = await sb.auth.admin.getUserById(appointment.user_id);
-  const customerEmail = authUser?.user?.email;
+  const customerEmail = appointment.user_id
+    ? (await sb.auth.admin.getUserById(appointment.user_id)).data?.user?.email
+    : null;
   if (customerEmail) {
     const { text, html } = renderEmail({
       heading: `Your session is coming up ${timeframe}`,
@@ -60,6 +64,25 @@ async function remindOne(
     });
     await sendEmail(customerEmail, `Reminder: your counselling session is ${timeframe}`, text, html);
     sentAny = true;
+  }
+
+  // WhatsApp reminder to the customer — guests included, who have no
+  // reminder email. Needs the mindcafe_appointment_reminder Utility
+  // template approved in MSG91 with body variables: first name, timeframe,
+  // session time, meeting link. Off unless WHATSAPP_APPOINTMENT_UPDATES is
+  // "on"; failures are logged and never affect the emails.
+  if (Deno.env.get("WHATSAPP_APPOINTMENT_UPDATES") === "on") {
+    const { to, name } = await resolveAppointmentWhatsApp(sb, appointment);
+    if (to) {
+      const result = await sendWhatsAppTemplate(to, "mindcafe_appointment_reminder", [
+        name,
+        timeframe,
+        formatSessionTime(appointment.scheduled_at),
+        meetLink ?? `${SITE_URL}/account`,
+      ]);
+      if (!result.ok) console.error("WhatsApp appointment reminder failed", appointment.id, window, result.reason);
+      sentAny = sentAny || result.ok;
+    }
   }
 
   if (appointment.expert_id) {
@@ -104,7 +127,7 @@ Deno.serve(async (req) => {
 
     const { data: appointments, error } = await sb
       .from("appointments")
-      .select("id, user_id, expert_id, therapy_category, scheduled_at, meet_link")
+      .select("id, user_id, guest_name, guest_phone, expert_id, therapy_category, scheduled_at, meet_link")
       .eq("status", "confirmed")
       .is(window.column, null)
       .not("scheduled_at", "is", null)

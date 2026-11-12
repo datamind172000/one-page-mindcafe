@@ -67,4 +67,6 @@ export type OrderWithItemDetailsAndLocation = OrderWithItemDetails & {
   pickup_locations: Pick<PickupLocation, "name" | "city"> | null;
   addresses: Pick<Address, "city" | "pincode" | "phone" | "line1" | "line2" | "landmark" | "state"> | null;
   profiles: Pick<Profile, "full_name" | "phone"> | null;
+  // Customer's total real orders (not abandoned/cancelled) — see getOrdersAdmin.
+  customer_order_count?: number;
 };
