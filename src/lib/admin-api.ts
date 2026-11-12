@@ -289,8 +289,45 @@ export async function getOrdersAdmin(
     for (const p of profiles ?? []) profileById.set(p.id, { full_name: p.full_name, phone: p.phone });
   }
 
+  // How many real orders each customer on this page has placed in total,
+  // across all pages — "real" meaning past checkout ('placed' is an
+  // unpaid/abandoned attempt) and not cancelled. Accounts are matched by
+  // user_id, guests by the last 10 digits of their phone, since the same
+  // number gets typed in different formats.
+  const last10 = (phone: string | null | undefined) => (phone ?? "").replace(/\D/g, "").slice(-10);
+  const countByUser = new Map<string, number>();
+  const countByPhone = new Map<string, number>();
+  if (userIds.length > 0) {
+    const { data: rows, error: countError } = await sb
+      .from("orders")
+      .select("user_id")
+      .in("user_id", userIds)
+      .not("status", "in", "(placed,cancelled)");
+    throwOnError("getOrdersAdmin (customer order counts)", countError);
+    for (const r of rows ?? []) if (r.user_id) countByUser.set(r.user_id, (countByUser.get(r.user_id) ?? 0) + 1);
+  }
+  const guestPhones = [...new Set(orders.filter((o) => !o.user_id).map((o) => last10(o.guest_phone)).filter((p) => p.length === 10))];
+  if (guestPhones.length > 0) {
+    const formats = guestPhones.flatMap((p) => [p, `91${p}`, `+91${p}`, `+91 ${p}`, `0${p}`, `${p.slice(0, 5)} ${p.slice(5)}`]);
+    const { data: rows, error: countError } = await sb
+      .from("orders")
+      .select("guest_phone")
+      .is("user_id", null)
+      .in("guest_phone", formats)
+      .not("status", "in", "(placed,cancelled)");
+    throwOnError("getOrdersAdmin (guest order counts)", countError);
+    for (const r of rows ?? []) {
+      const p = last10(r.guest_phone);
+      countByPhone.set(p, (countByPhone.get(p) ?? 0) + 1);
+    }
+  }
+
   return {
-    orders: orders.map((o) => ({ ...o, profiles: o.user_id ? (profileById.get(o.user_id) ?? null) : null })),
+    orders: orders.map((o) => ({
+      ...o,
+      profiles: o.user_id ? (profileById.get(o.user_id) ?? null) : null,
+      customer_order_count: o.user_id ? (countByUser.get(o.user_id) ?? 0) : (countByPhone.get(last10(o.guest_phone)) ?? 0),
+    })),
     total: count ?? 0,
   };
 }

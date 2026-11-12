@@ -387,6 +387,13 @@ export default function AdminOrdersPage() {
               </a>
             )}
             {email && <p className="break-all text-ink/50">{email}</p>}
+            {(o.customer_order_count ?? 0) >= 2 ? (
+              <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-800">
+                Repeat · {o.customer_order_count} orders
+              </span>
+            ) : (o.customer_order_count ?? 0) === 1 ? (
+              <span className="inline-block text-[11px] text-ink/40">1st order</span>
+            ) : null}
           </div>
         );
       },
