@@ -713,6 +713,10 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      claim_meta_purchase: {
+        Args: { p_order_id: string };
+        Returns: { event_id: string; value: number; content_ids: string[] }[];
+      };
       track_order: {
         Args: { p_order_number: string; p_phone: string };
         Returns: Json;
