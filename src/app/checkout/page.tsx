@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Trash2 } from "lucide-react";
@@ -21,6 +21,21 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order");
   const { items, isLoading, updateQuantity, removeItem } = useCartContext();
+  const checkoutTracked = useRef(false);
+
+  useEffect(() => {
+    if (orderId || isLoading || !items.length || checkoutTracked.current || !window.fbq) return;
+    // Commerce-only parameters. No product names, personal data or health context.
+    const total = items.reduce((sum, item) => sum + (item.product_variants.price_override ?? item.product_variants.products.price) * item.quantity, 0);
+    if (!Number.isFinite(total)) return;
+    window.fbq("trackSingle", "1667702978300497", "InitiateCheckout", {
+      content_ids: items.map((item) => item.product_variants.products.id),
+      value: Math.round(total * 100) / 100,
+      num_items: items.reduce((sum, item) => sum + item.quantity, 0),
+      currency: "INR",
+    });
+    checkoutTracked.current = true;
+  }, [items, isLoading, orderId]);
 
   useEffect(() => {
     if (orderId || isLoading || items.length > 0) return;
