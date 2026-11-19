@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
+import { captureFirstTouch } from "@/lib/firstTouch";
 
 // This is the existing MindCafe Pixel. Never initialise a second dataset.
 export const META_PIXEL_ID = "1667702978300497";
@@ -30,6 +31,28 @@ export function MetaPixel() {
   const lastTrackedPath = useRef<string | null>(null);
   const previousPath = useRef(pathname);
   const allowed = allowedPath(pathname);
+
+  useEffect(() => { captureFirstTouch(); }, []);
+
+  // Intercept link clicks before Next.js performs a client-side navigation.
+  // A loaded Meta library cannot be removed safely on the sensitive page.
+  useEffect(() => {
+    function hardNavigate(event: MouseEvent) {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement) || anchor.target && anchor.target !== "_self" || anchor.hasAttribute("download")) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (allowedPath(url.pathname) === allowedPath(window.location.pathname)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.location.assign(url.href);
+    }
+    document.addEventListener("click", hardNavigate, true);
+    return () => document.removeEventListener("click", hardNavigate, true);
+  }, []);
 
   // A loaded third-party Pixel cannot reliably be unloaded from an SPA.
   // Force a document navigation across the allowlist boundary to prevent
