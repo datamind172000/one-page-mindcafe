@@ -50,7 +50,16 @@ export function OrderConfirmation({
     // Atomically claim a verified order once, across refreshes and devices.
     void (async () => {
       const sb = createClient();
-      const { data, error } = await sb.rpc("claim_meta_purchase", { p_order_id: orderId });
+      // The SQL migration adds this RPC; generated Supabase types have not yet
+      // been regenerated. Narrow the escape hatch to this one new RPC.
+      const purchaseRpc = sb.rpc as unknown as (
+        name: "claim_meta_purchase",
+        args: { p_order_id: string },
+      ) => Promise<{
+        data: Array<{ event_id: string; value: number; content_ids: string[] }> | null;
+        error: { message: string } | null;
+      }>;
+      const { data, error } = await purchaseRpc("claim_meta_purchase", { p_order_id: orderId });
       if (error || !Array.isArray(data) || data.length !== 1) return;
       const event = data[0] as { event_id: string; value: number; content_ids: string[] };
       if (!Number.isFinite(Number(event.value))) return;
