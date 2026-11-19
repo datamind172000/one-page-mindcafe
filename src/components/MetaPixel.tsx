@@ -34,8 +34,9 @@ export function MetaPixel() {
 
   useEffect(() => { captureFirstTouch(); }, []);
 
-  // Intercept link clicks before Next.js performs a client-side navigation.
-  // A loaded Meta library cannot be removed safely on the sensitive page.
+  // Use full document navigations between distinct paths. This guarantees
+  // that Meta reads the actual destination URL instead of a stale SPA URL,
+  // and that its script never survives navigation to a sensitive route.
   useEffect(() => {
     function hardNavigate(event: MouseEvent) {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -45,7 +46,7 @@ export function MetaPixel() {
       if (!(anchor instanceof HTMLAnchorElement) || anchor.target && anchor.target !== "_self" || anchor.hasAttribute("download")) return;
       const url = new URL(anchor.href, window.location.href);
       if (url.origin !== window.location.origin) return;
-      if (allowedPath(url.pathname) === allowedPath(window.location.pathname)) return;
+      if (url.pathname.replace(/\/+$/, "") === window.location.pathname.replace(/\/+$/, "")) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       window.location.assign(url.href);
@@ -54,19 +55,15 @@ export function MetaPixel() {
     return () => document.removeEventListener("click", hardNavigate, true);
   }, []);
 
-  // A loaded third-party Pixel cannot reliably be unloaded from an SPA.
-  // Force a document navigation across the allowlist boundary to prevent
-  // the existing instance from persisting onto sensitive routes.
+  // Fallback for programmatic router.push/replace navigation: reload the
+  // destination document before firing any event for the new route.
   useEffect(() => {
     if (previousPath.current !== pathname) {
-      const crossedBoundary = allowedPath(previousPath.current) !== allowed;
       previousPath.current = pathname;
-      if (crossedBoundary) {
-        window.location.replace(window.location.href);
-        return;
-      }
+      window.location.replace(window.location.href);
+      return;
     }
-  }, [pathname, allowed]);
+  }, [pathname]);
 
   useEffect(() => {
     if (!allowed || !ready || !window.fbq) return;
