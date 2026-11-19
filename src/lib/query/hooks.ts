@@ -91,6 +91,16 @@ export function useCart(cartId: string | null) {
         return [...items, optimisticItem];
       }),
     onError: (_err, _args, context) => rollback(context),
+    onSuccess: (_result, args) => {
+      if (typeof window === "undefined" || !window.fbq || !/^\/(?:feelz|products\/[^/]+|cart|checkout)\/?$/.test(window.location.pathname)) return;
+      const unitPrice = args.variant.price_override ?? args.product.price;
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) return;
+      window.fbq("trackSingle", "1667702978300497", "AddToCart", {
+        content_ids: [args.product.id],
+        value: Math.round(unitPrice * args.quantity * 100) / 100,
+        currency: "INR",
+      });
+    },
     onSettled: settle,
   });
 
