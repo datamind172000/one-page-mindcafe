@@ -405,6 +405,7 @@ export async function bookAppointment(sb: Sb, input: BookAppointmentInput): Prom
       scheduled_at: input.scheduledAt,
       notes: input.notes,
       coupon_code: input.couponCode || undefined,
+      attribution: input.attribution,
       guest: input.guest,
     },
   });
@@ -945,6 +946,7 @@ export type CheckoutInput = {
   items: { variantId: string; quantity: number }[];
   fulfillment: CheckoutFulfillment;
   couponCode?: string;
+  attribution?: Partial<Record<"utm_source" | "utm_medium" | "utm_campaign" | "utm_content" | "fbclid", string>>;
   guest?: { name: string; phone: string; email?: string };
   notes?: string;
 };
