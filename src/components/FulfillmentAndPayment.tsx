@@ -15,6 +15,7 @@ import {
   type PincodeServiceability,
 } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
+import { readFirstTouch } from "@/lib/firstTouch";
 import { useAddresses } from "@/lib/query/hooks";
 import { AddressForm, type AddressFormValues } from "@/components/AddressForm";
 import { formatInr } from "@/lib/utils";
@@ -312,7 +313,19 @@ export function FulfillmentAndPayment({ onOrderPlaced }: { onOrderPlaced: (order
             ? { type: "delivery", addressId: addressId! }
             : { type: "takeaway", locationId: locationId!, pickupSlot: pickupSlot || undefined },
         couponCode: appliedCoupon?.code,
+        attribution: readFirstTouch(),
       });
+
+      // Use the authoritative, discount-adjusted amount returned by the server.
+      // Fire at checkout initiation, not on every render of the cart page.
+      if (!result.free && window.fbq && !window.location.search && Number.isFinite(result.total)) {
+        window.fbq("trackSingle", "1667702978300497", "InitiateCheckout", {
+          content_ids: items.map((item) => item.product_variants.products.id),
+          value: Math.round(result.total * 100) / 100,
+          num_items: items.reduce((sum, item) => sum + item.quantity, 0),
+          currency: "INR",
+        });
+      }
 
       if (result.free) {
         clearCart();
