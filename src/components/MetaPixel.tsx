@@ -1,10 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Script from "next/script";
 
+// This is the existing MindCafe Pixel. Never initialise a second dataset.
 export const META_PIXEL_ID = "1667702978300497";
+
+// Explicit allowlist. Unknown and health-related paths are denied by default.
+// Product pages can be added only after confirming their URL/content is safe.
+const ALLOWED_PATHS = new Set(["/", "/feelz", "/cart", "/checkout"]);
+const ALLOWED_PREFIXES = ["/products/"];
+
+function allowedPath(pathname: string): boolean {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  return ALLOWED_PATHS.has(path) ||
+    ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix) && path.length > prefix.length);
+}
 
 declare global {
   interface Window {
@@ -12,34 +24,43 @@ declare global {
   }
 }
 
-// Initialize the existing Meta Pixel exactly once. PageView is emitted by
-// the effect only after the base script is ready, including on direct loads.
-// This avoids racing the initial event with Next.js route hydration.
 export function MetaPixel() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [scriptReady, setScriptReady] = useState(false);
-  const lastTrackedUrl = useRef<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const lastTrackedPath = useRef<string | null>(null);
+  const previousPath = useRef(pathname);
+  const allowed = allowedPath(pathname);
+
+  // A loaded third-party Pixel cannot reliably be unloaded from an SPA.
+  // Force a document navigation across the allowlist boundary to prevent
+  // the existing instance from persisting onto sensitive routes.
+  useEffect(() => {
+    if (previousPath.current !== pathname) {
+      const crossedBoundary = allowedPath(previousPath.current) !== allowed;
+      previousPath.current = pathname;
+      if (crossedBoundary) {
+        window.location.replace(window.location.href);
+        return;
+      }
+    }
+  }, [pathname, allowed]);
 
   useEffect(() => {
-    if (!scriptReady || !window.fbq) return;
+    if (!allowed || !ready || !window.fbq) return;
+    // Never send query strings: they may contain order identifiers, UTMs,
+    // tokens, or personal/health information. The Pixel derives its
+    // document URL automatically, so only fire on a query-free URL.
+    if (window.location.search || window.location.hash) return;
+    if (lastTrackedPath.current === pathname) return;
+    window.fbq("trackSingle", META_PIXEL_ID, "PageView");
+    lastTrackedPath.current = pathname;
+  }, [allowed, pathname, ready]);
 
-    // Read the live browser URL when the event fires. Meta's browser Pixel
-    // derives its page URL (dl) from the document at tracking time.
-    const url = window.location.href;
-    if (lastTrackedUrl.current === url) return;
-
-    window.fbq("track", "PageView");
-    lastTrackedUrl.current = url;
-  }, [scriptReady, pathname, searchParams]);
+  if (!allowed) return null;
 
   return (
     <>
-      <Script
-        id="meta-pixel"
-        strategy="afterInteractive"
-        onReady={() => setScriptReady(true)}
-      >
+      <Script id="meta-pixel" strategy="afterInteractive" onReady={() => setReady(true)}>
         {`
           !function(f,b,e,v,n,t,s)
           {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -49,19 +70,10 @@ export function MetaPixel() {
           t.src=v;s=b.getElementsByTagName(e)[0];
           s.parentNode.insertBefore(t,s)}(window,document,'script',
           'https://connect.facebook.net/en_US/fbevents.js');
-          fbq('init', '${META_PIXEL_ID}');
+          fbq('set', 'autoConfig', false, '1667702978300497');
+          fbq('init', '1667702978300497');
         `}
       </Script>
-      <noscript>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          height="1"
-          width="1"
-          style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
-          alt=""
-        />
-      </noscript>
     </>
   );
 }
