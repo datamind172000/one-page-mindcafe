@@ -109,7 +109,20 @@ type RequestBody = {
   coupon_code?: string;
   guest?: { name: string; phone: string; email?: string };
   notes?: string;
+  attribution?: Record<string, unknown>;
 };
+
+const ATTRIBUTION_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "fbclid"] as const;
+function cleanAttribution(input: unknown): Record<string, string> {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const source = input as Record<string, unknown>;
+  const safe: Record<string, string> = {};
+  for (const key of ATTRIBUTION_KEYS) {
+    const value = source[key];
+    if (typeof value === "string" && value.length > 0 && value.length <= 160 && /^[a-zA-Z0-9_.~%-]+$/.test(value)) safe[key] = value;
+  }
+  return safe;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -122,7 +135,8 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
-  const { cart_id, items, fulfillment, coupon_code, guest, notes } = body ?? ({} as RequestBody);
+  const { cart_id, items, fulfillment, coupon_code, guest, notes, attribution } = body ?? ({} as RequestBody);
+  const safeAttribution = cleanAttribution(attribution);
 
   if (!cart_id || !Array.isArray(items) || items.length === 0) {
     return jsonResponse({ error: "cart_id and a non-empty items array are required" }, 400);
@@ -373,6 +387,7 @@ Deno.serve(async (req) => {
       guest_phone: user ? null : guest!.phone,
       guest_email: user ? null : (guest!.email ?? null),
       notes: notes?.trim() || null,
+      attribution: safeAttribution,
       ...(guestAddress ?? {}),
     })
     .select("id")
@@ -443,7 +458,7 @@ Deno.serve(async (req) => {
   const razorpayRes = await fetch("https://api.razorpay.com/v1/orders", {
     method: "POST",
     headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ amount: amountPaise, currency: "INR", receipt: order.id }),
+    body: JSON.stringify({ amount: amountPaise, currency: "INR", receipt: order.id, notes: safeAttribution }),
   });
 
   if (!razorpayRes.ok) {
