@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { useQuery } from "@tanstack/react-query";
 import { useOrderTracking } from "@/lib/query/hooks";
@@ -42,6 +42,26 @@ export function OrderConfirmation({
   showEmailNote?: boolean;
 }) {
   const { data: order, isLoading } = useOrderTracking(orderId);
+  const purchaseAttempted = useRef(false);
+
+  useEffect(() => {
+    if (purchaseAttempted.current || !order || order.payment_status !== "paid" || !window.fbq) return;
+    purchaseAttempted.current = true;
+    // Atomically claim a verified order once, across refreshes and devices.
+    void (async () => {
+      const sb = createClient();
+      const { data, error } = await sb.rpc("claim_meta_purchase", { p_order_id: orderId });
+      if (error || !Array.isArray(data) || data.length !== 1) return;
+      const event = data[0] as { event_id: string; value: number; content_ids: string[] };
+      if (!Number.isFinite(Number(event.value))) return;
+      // Do not leak the order identifier in the Meta document URL.
+      // The confirmation stays visible; reloading returns to checkout.
+      window.history.replaceState(window.history.state, "", "/checkout");
+      window.fbq?.("trackSingle", "1667702978300497", "Purchase", {
+        value: Number(event.value), currency: "INR", content_ids: event.content_ids,
+      }, { eventID: event.event_id });
+    })();
+  }, [order, orderId]);
   // Timestamps for the timeline. Refetches alongside the order; if the
   // history table isn't there yet the timeline still renders from status.
   const eventsQuery = useQuery({
