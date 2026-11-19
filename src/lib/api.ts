@@ -405,7 +405,6 @@ export async function bookAppointment(sb: Sb, input: BookAppointmentInput): Prom
       scheduled_at: input.scheduledAt,
       notes: input.notes,
       coupon_code: input.couponCode || undefined,
-      attribution: input.attribution,
       guest: input.guest,
     },
   });
@@ -992,6 +991,7 @@ export async function checkout(sb: Sb, input: CheckoutInput): Promise<CheckoutRe
           ? { type: "delivery", address_id: input.fulfillment.addressId, address: input.fulfillment.address }
           : { type: "takeaway", location_id: input.fulfillment.locationId, pickup_slot: input.fulfillment.pickupSlot },
       coupon_code: input.couponCode || undefined,
+      attribution: input.attribution,
       guest: input.guest,
       notes: input.notes || undefined,
     },
