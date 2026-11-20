@@ -193,7 +193,7 @@ export function FeelzTeaserSection() {
                 {/* Official product details (the client's Website Product Information
                     note): positioning, best-for, key ingredients, flavour,
                     pack size and live price. */}
-                <Link href={copy ? `/feelz/${mood}` : "/feelz"} className="flex flex-1 flex-col px-5 pb-6 pt-5">
+                <Link href={copy ? `https://feelz.mindcafe.app/feelz/${mood}` : "https://feelz.mindcafe.app"} className="flex flex-1 flex-col px-5 pb-6 pt-5">
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="font-display text-lg font-bold tracking-tight text-ink">{product.name}</p>
                     <p className="shrink-0 text-sm font-semibold text-ink">{formatInr(product.price)}</p>
@@ -244,7 +244,7 @@ export function FeelzTeaserSection() {
           transition={{ duration: 0.9, delay: 0.15, ease: EASE }}
         >
           <Link
-            href="/feelz"
+            href="https://feelz.mindcafe.app"
             className="group inline-flex items-center gap-2 rounded-full border border-ink/20 px-7 py-3 text-[13px] font-medium text-ink transition-all duration-300 hover:-translate-y-px hover:border-ink/40 hover:bg-white"
           >
             Shop All Feelz
@@ -270,7 +270,7 @@ export function FeelzTeaserSection() {
             />
           </div>
         )}
-        <Link href="/feelz" className="pill-btn mt-4 w-full text-center">
+        <Link href="https://feelz.mindcafe.app" className="pill-btn mt-4 w-full text-center">
           Shop Feelz
         </Link>
       </Modal>
