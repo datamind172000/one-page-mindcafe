@@ -3,15 +3,14 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { useCartContext } from "@/contexts/CartContext";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { Avatar } from "@/components/Avatar";
-import { ShopMenu } from "@/components/ShopMenu";
+
 import { getDashboardLink } from "@/lib/roleNav";
-import { MOOD_GRID } from "@/lib/moodStyles";
+
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -29,9 +28,7 @@ const NAV_LINKS = [
 export function Header() {
   const { status, profile, user, signOut } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const { itemCount, openDrawer, lastAdded } = useCartContext();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mobileShopOpen, setMobileShopOpen] = useState(false);
   // Purely cosmetic: the floating glass panel reads slightly denser once
   // the page has scrolled, on every route (not homepage-specific anymore
   // — there's no dark hero left to key that off of).
@@ -53,10 +50,6 @@ export function Header() {
 
   const dashboardLink = getDashboardLink(profile?.role);
 
-  function handleMobileCart() {
-    setMenuOpen(false);
-    openDrawer();
-  }
 
   return (
     <header
@@ -79,7 +72,7 @@ export function Header() {
         {/* Full link row only from xl (1280px): five links + a centred logo don't fit
             narrower; below that the menu button handles navigation. */}
         <nav className="font-display hidden items-center gap-6 whitespace-nowrap text-[13px] font-semibold tracking-[0.14em] text-ink/70 xl:flex">
-          <ShopMenu linkClassName="nav-cine hover:text-brand" />
+          <a href="https://feelz.mindcafe.app" className="nav-cine hover:text-brand">Feelz</a>
           {NAV_LINKS.map((link) => (
             <Link key={link.href} href={link.href} className="nav-cine hover:text-brand">
               {link.label}
@@ -102,17 +95,6 @@ export function Header() {
             <Link href="/book-appointment" className="pill-btn-outline !py-2 text-xs">
               Talk to an Expert
             </Link>
-
-            {status === "authenticated" && (
-              <button
-                key={lastAdded?.key ?? "cart"}
-                onClick={openDrawer}
-                className={`pill-btn-outline !py-2 text-xs ${lastAdded ? "cart-bump" : ""}`}
-              >
-                <ShoppingBag className="h-3.5 w-3.5 text-ink" aria-hidden />
-                Cart{itemCount > 0 ? ` · ${itemCount}` : ""}
-              </button>
-            )}
 
             {status === "authenticated" ? (
               <ProfileMenu />
@@ -139,35 +121,7 @@ export function Header() {
 
       {menuOpen && (
         <nav className="flex flex-col gap-1 border-t border-ink/10 bg-white px-4 py-3 text-[11px] font-medium tracking-label text-ink/70 xl:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileShopOpen((open) => !open)}
-            aria-expanded={mobileShopOpen}
-            className="flex w-full items-center justify-center gap-1.5 py-2.5 text-center uppercase hover:text-ink"
-          >
-            feelz {mobileShopOpen ? "−" : "+"}
-          </button>
-          {mobileShopOpen && (
-            <div className="mb-1 grid grid-cols-2 gap-1 px-4">
-              {MOOD_GRID.map((mood) => (
-                <Link
-                  key={mood.key}
-                  href={`/feelz/${mood.key}`}
-                  onClick={() => setMenuOpen(false)}
-                  className="rounded-lg bg-cream/60 py-2 text-center normal-case tracking-normal text-ink/70 hover:text-ink"
-                >
-                  {mood.label}
-                </Link>
-              ))}
-              <Link
-                href="/feelz"
-                onClick={() => setMenuOpen(false)}
-                className="col-span-2 rounded-lg border border-ink/10 py-2 text-center normal-case tracking-normal text-ink/70 hover:text-ink"
-              >
-                Shop All
-              </Link>
-            </div>
-          )}
+          <a href="https://feelz.mindcafe.app" onClick={() => setMenuOpen(false)} className="w-full py-2.5 text-center uppercase hover:text-ink">Feelz</a>
 
           {NAV_LINKS.map((link) => (
             <Link
@@ -187,16 +141,6 @@ export function Header() {
           >
             talk to an expert
           </Link>
-
-          {status === "authenticated" && (
-            <button
-              onClick={handleMobileCart}
-              className="flex w-full items-center justify-center gap-2 py-2.5 text-center uppercase hover:text-ink"
-            >
-              <ShoppingBag className="h-3.5 w-3.5 text-ink" aria-hidden />
-              cart{itemCount > 0 ? ` · ${itemCount}` : ""}
-            </button>
-          )}
 
           {status === "authenticated" ? (
             <>
