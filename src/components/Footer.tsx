@@ -105,7 +105,7 @@ export function Footer() {
           <ul className="mt-3 space-y-1 text-sm text-ink/70">
             {MOOD_GRID.map((mood) => (
               <li key={mood.key}>
-                <Link href={`/feelz/${mood.key}`} className="hover:text-brand hover:underline">
+                <Link href={`https://feelz.mindcafe.app/feelz/${mood.key}`} className="hover:text-brand hover:underline">
                   {mood.label}
                 </Link>
               </li>
