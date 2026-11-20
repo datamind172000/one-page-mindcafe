@@ -5,7 +5,6 @@ import { FeelzTeaserSection } from "@/components/FeelzTeaserSection";
 import { UseCasesSection } from "@/components/UseCasesSection";
 import { CounsellingTeaserSection } from "@/components/CounsellingTeaserSection";
 import { TestimonialsSection } from "@/components/TestimonialsSection";
-import { StatsBar } from "@/components/StatsBar";
 import { TrustStatsSection } from "@/components/TrustStatsSection";
 import { PressMentionsSection } from "@/components/PressMentionsSection";
 
@@ -35,7 +34,6 @@ export default function Home() {
       <PartnersImpactSection />
       <MentalHealthSection />
       <FeelzTeaserSection />
-      <StatsBar />
       <UseCasesSection />
       <CounsellingTeaserSection />
       <TrustStatsSection />
