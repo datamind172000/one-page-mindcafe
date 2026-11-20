@@ -7,8 +7,6 @@ import { Providers } from "./providers";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { CartDrawer } from "@/components/CartDrawer";
-import { CartAddedToast } from "@/components/CartAddedToast";
 import { AppLoadingOverlay } from "@/components/AppLoadingOverlay";
 import { MetaPixel } from "@/components/MetaPixel";
 
@@ -42,7 +40,7 @@ const body = Inter({ variable: "--font-body", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "mindcafe",
-  description: "A paper-thin strip. Sixty seconds on the tongue. Four moods, on demand, delivered or picked up at a Zostel.",
+  description: "MindCafe offers mental wellness resources, assessments, counselling and expert-led support.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -79,8 +77,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
-          <CartDrawer />
-          <CartAddedToast />
         </Providers>
       </body>
     </html>
