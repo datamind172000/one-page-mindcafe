@@ -64,8 +64,9 @@ export default async function StorefrontFunnel({ searchParams }: { searchParams:
             ))}
           </dl>
           <p className="mt-5 text-sm text-ink/70">
-            Visitors are unique browsers. Carts are grouped by the first saved add. Paid orders are counted
-            on the day payment is confirmed. A payment after 24 hours still counts as a paid order.
+            Visitors are unique browsers. A cart attempt starts on a saved add. Another add after 24 hours
+            can start a new attempt on the same cart. Paid orders are counted on the day payment is
+            confirmed, including payments received after 24 hours.
           </p>
           <p className="mt-2 text-sm text-ink/70">
             {countFormat.format(data.carts_still_open_24h)} unpaid carts are still within their 24-hour window.

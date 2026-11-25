@@ -13,10 +13,11 @@ create table storefront_analytics.cart_attempts (
   cart_id uuid not null,
   first_add_at timestamptz not null default now(),
   order_id uuid unique,
+  closed_at timestamptz,
   superseded boolean not null default false
 );
 create unique index storefront_open_cart_idx on storefront_analytics.cart_attempts (cart_id)
-  where order_id is null and not superseded;
+  where order_id is null and closed_at is null and not superseded;
 create index storefront_cart_cohort_idx on storefront_analytics.cart_attempts (first_add_at)
   where not superseded;
 create table storefront_analytics.paid_orders (
@@ -67,9 +68,15 @@ begin
     return new;
   end if;
 
+  -- A returning shopper can start a new attempt on the same persistent cart.
+  update storefront_analytics.cart_attempts
+    set closed_at = now()
+    where cart_id = new.cart_id and order_id is null and closed_at is null and not superseded
+      and first_add_at <= now() - interval '24 hours';
+
   insert into storefront_analytics.cart_attempts (cart_id)
   values (new.cart_id)
-  on conflict (cart_id) where order_id is null and not superseded do nothing;
+  on conflict (cart_id) where order_id is null and closed_at is null and not superseded do nothing;
   return new;
 end;
 $$;
@@ -89,13 +96,13 @@ begin
 
   update storefront_analytics.cart_attempts
     set superseded = true
-    where cart_id = new.id and order_id is null and not superseded
+    where cart_id = new.id and order_id is null and closed_at is null and not superseded
     returning first_add_at into guest_first_add;
 
   if guest_first_add is not null then
     insert into storefront_analytics.cart_attempts (cart_id, first_add_at)
     values (new.funnel_merged_into, guest_first_add)
-    on conflict (cart_id) where order_id is null and not superseded
+    on conflict (cart_id) where order_id is null and closed_at is null and not superseded
     do update set first_add_at = least(
       storefront_analytics.cart_attempts.first_add_at, excluded.first_add_at
     );
@@ -117,7 +124,7 @@ begin
   if tg_op = 'INSERT' then
     update storefront_analytics.cart_attempts
       set order_id = new.id
-      where cart_id = new.source_cart_id and order_id is null and not superseded;
+      where cart_id = new.source_cart_id and order_id is null and closed_at is null and not superseded;
   elsif old.payment_status = 'paid' then
     return new;
   end if;
