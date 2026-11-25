@@ -713,6 +713,20 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      record_storefront_visit: {
+        Args: { p_visitor: string };
+        Returns: undefined;
+      };
+      storefront_funnel: {
+        Args: { p_from: string; p_through: string };
+        Returns: {
+          visitors: number;
+          carts_with_add: number;
+          paid_orders: number;
+          carts_without_payment_24h: number;
+          carts_still_open_24h: number;
+        }[];
+      };
       track_order: {
         Args: { p_order_number: string; p_phone: string };
         Returns: Json;

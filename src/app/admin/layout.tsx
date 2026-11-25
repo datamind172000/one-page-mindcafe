@@ -28,6 +28,7 @@ import { ConfirmDialogProvider } from "@/contexts/ConfirmDialogContext";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", Icon: BarChart3 },
+  { href: "/admin/storefront-funnel", label: "Storefront funnel", Icon: BarChart3 },
   { href: "/admin/orders", label: "orders", Icon: ShoppingBag },
   { href: "/admin/appointments", label: "Appointments", Icon: Calendar },
   { href: "/admin/availability", label: "Availability", Icon: Calendar },

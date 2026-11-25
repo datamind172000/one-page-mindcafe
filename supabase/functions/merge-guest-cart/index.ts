@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  await sb.from("carts").update({ status: "merged" }).eq("id", guestCart.id);
+  await sb.from("carts").update({ status: "merged", funnel_merged_into: userCart.id }).eq("id", guestCart.id);
 
   return jsonResponse({ merged: true });
 });
