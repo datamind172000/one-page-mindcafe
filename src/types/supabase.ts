@@ -713,6 +713,19 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      record_feelz_page: {
+        Args: { p_event: string; p_visitor: string; p_product: boolean; p_campaign: Json };
+        Returns: undefined;
+      };
+      record_feelz_cart_campaign: {
+        Args: { p_cart: string; p_guest: string | null; p_campaign: Json; p_checkout: boolean };
+        Returns: undefined;
+      };
+      feelz_campaign_funnel: {
+        Args: { p_from: string; p_through: string };
+        Returns: { campaign: Json; visitors: number; page_views: number; product_views: number;
+          carts: number; checkouts: number; paid_orders: number; revenue_inr: number; unpaid_24h: number }[];
+      };
       record_storefront_visit: {
         Args: { p_visitor: string };
         Returns: undefined;

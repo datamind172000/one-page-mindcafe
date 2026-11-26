@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { recordStorefrontCart } from "@/lib/storefrontCampaign";
 import { createClient } from "@/lib/supabase/client";
 import {
   addCartItem,
@@ -90,6 +91,7 @@ export function useCart(cartId: string | null) {
         };
         return [...items, optimisticItem];
       }),
+    onSuccess: () => { if (cartId) void recordStorefrontCart(cartId, false); },
     onError: (_err, _args, context) => rollback(context),
     onSettled: settle,
   });

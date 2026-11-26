@@ -24,9 +24,12 @@ export default async function StorefrontFunnel({ searchParams }: { searchParams:
   const valid = isDate(from) && isDate(through) && from <= through &&
     +new Date(through) - +new Date(from) <= 90 * 86_400_000;
 
-  const report = valid
-    ? await (await createClient()).rpc("storefront_funnel", { p_from: from, p_through: through }).single()
-    : null;
+  const db = valid ? await createClient() : null;
+  const args = { p_from: from, p_through: through };
+  const [report, breakdown] = db ? await Promise.all([
+    db.rpc("storefront_funnel", args).single(),
+    db.rpc("feelz_campaign_funnel", args),
+  ]) : [null, null];
   const data = report?.data;
 
   return (
@@ -73,6 +76,32 @@ export default async function StorefrontFunnel({ searchParams }: { searchParams:
             Reporting starts when collection is enabled.
           </p>
         </>
+      )}
+      {valid && data && (
+        <section className="mt-8">
+          <h2 className="font-display text-xl font-bold">Campaign and ad performance</h2>
+          <p className="my-2 text-sm text-ink/70">Latest tagged visit within seven days. Cart attribution is saved on the cart attempt. Paid orders use payment confirmation dates. Untagged traffic is unattributed.</p>
+          {breakdown?.error && <p role="alert">Campaign breakdown is unavailable.</p>}
+          {breakdown?.data?.length === 0 && <p>No campaign activity in this period.</p>}
+          {!!breakdown?.data?.length && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead><tr>{["Source", "Medium", "Campaign", "Content", "Ad set", "Ad", "Visitors", "Page views", "Product views", "Carts", "Checkouts", "Paid orders", "Revenue (INR)", "Unpaid after 24h"].map(label =>
+                  <th key={label} scope="col" className="border-b p-2">{label}</th>
+                )}</tr></thead>
+                <tbody>{breakdown.data.map(row => {
+                  const tags = row.campaign as Record<string, string>;
+                  return <tr key={JSON.stringify(tags)} className="border-b">
+                    {[tags.utm_source || "Unattributed", tags.utm_medium, [tags.utm_campaign, tags.campaign_id].filter(Boolean).join(" · "), tags.utm_content, tags.adset_id, tags.ad_id].map((value, index) =>
+                      <td key={index} className="p-2">{value || "—"}</td>)}
+                    {[row.visitors,row.page_views,row.product_views,row.carts,row.checkouts,row.paid_orders,row.revenue_inr,row.unpaid_24h].map((value,index) =>
+                      <td key={index} className="p-2 tabular-nums">{countFormat.format(Number(value))}</td>)}
+                  </tr>;
+                })}</tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
     </section>
   );

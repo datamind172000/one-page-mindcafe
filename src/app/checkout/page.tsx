@@ -4,6 +4,7 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Trash2 } from "lucide-react";
+import { recordStorefrontCart } from "@/lib/storefrontCampaign";
 import { useCartContext } from "@/contexts/CartContext";
 import { FulfillmentAndPayment } from "@/components/FulfillmentAndPayment";
 import { OrderConfirmation } from "@/components/OrderConfirmation";
@@ -20,12 +21,16 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order");
-  const { items, isLoading, updateQuantity, removeItem } = useCartContext();
+  const { cartId, items, isLoading, updateQuantity, removeItem } = useCartContext();
 
   useEffect(() => {
     if (orderId || isLoading || items.length > 0) return;
     router.replace("/feelz");
   }, [orderId, isLoading, items.length, router]);
+
+  useEffect(() => {
+    if (!orderId && !isLoading && cartId && items.length > 0) void recordStorefrontCart(cartId, true);
+  }, [orderId, isLoading, cartId, items.length]);
 
   return (
     <div className="bg-feelz-cream">
