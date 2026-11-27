@@ -713,6 +713,12 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      feelz_campaign_records: {
+        Args: { p_from: string; p_through: string; p_campaign: Json; p_metric: string; p_offset: number };
+        Returns: { attempt_id: number | null; happened_at: string; customer_name: string | null; phone: string | null;
+          email: string | null; order_number: string | null; payment_status: string | null; paid_at: string | null;
+          total_inr: number | null; total_rows: number }[];
+      };
       record_feelz_page: {
         Args: { p_event: string; p_visitor: string; p_product: boolean; p_campaign: Json };
         Returns: undefined;

@@ -1,6 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 
-type SearchParams = Promise<{ from?: string; through?: string }>;
+type SearchParams = Promise<{ from?: string; through?: string; metric?: string; group?: string; page?: string }>;
+
+const metricLabels = { carts: "Carts", checkouts: "Checkouts", paid: "Paid orders", unpaid: "Unpaid after 24 hours" } as const;
+type Metric = keyof typeof metricLabels;
+const detailsDate = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
+
+function readGroup(raw: unknown): Record<string, string> | null {
+  if (typeof raw !== "string" || raw.length > 1100) return null;
+  try {
+    const value = JSON.parse(raw);
+    if (value && typeof value === "object" && !Array.isArray(value) &&
+      Object.values(value).every(item => typeof item === "string")) return value;
+  } catch {}
+  return null;
+}
 
 function dateInIndia(date: Date) {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Kolkata" }).format(date);
@@ -26,10 +40,17 @@ export default async function StorefrontFunnel({ searchParams }: { searchParams:
 
   const db = valid ? await createClient() : null;
   const args = { p_from: from, p_through: through };
-  const [report, breakdown] = db ? await Promise.all([
+  const metric = typeof params.metric === "string" && Object.hasOwn(metricLabels, params.metric)
+    ? params.metric as Metric : null;
+  const group = readGroup(params.group);
+  const offset = /^\d{1,6}$/.test(params.page ?? "") ? Number(params.page) * 50 : 0;
+  const detailLink = (m: Metric, tags: Record<string, string>, part = 0) =>
+    `?${new URLSearchParams({ from, through, metric: m, group: JSON.stringify(tags), page: String(part) })}#campaign-records`;
+  const [report, breakdown, details] = db ? await Promise.all([
     db.rpc("storefront_funnel", args).single(),
     db.rpc("feelz_campaign_funnel", args),
-  ]) : [null, null];
+    metric && group ? db.rpc("feelz_campaign_records", { ...args, p_metric: metric, p_campaign: group, p_offset: offset }) : null,
+  ]) : [null, null, null];
   const data = report?.data;
 
   return (
@@ -94,13 +115,52 @@ export default async function StorefrontFunnel({ searchParams }: { searchParams:
                   return <tr key={JSON.stringify(tags)} className="border-b">
                     {[tags.utm_source || "Unattributed", tags.utm_medium, [tags.utm_campaign, tags.campaign_id].filter(Boolean).join(" · "), tags.utm_content, tags.adset_id, tags.ad_id].map((value, index) =>
                       <td key={index} className="p-2">{value || "—"}</td>)}
-                    {[row.visitors,row.page_views,row.product_views,row.carts,row.checkouts,row.paid_orders,row.revenue_inr,row.unpaid_24h].map((value,index) =>
-                      <td key={index} className="p-2 tabular-nums">{countFormat.format(Number(value))}</td>)}
+                    {[row.visitors, row.page_views, row.product_views, row.carts, row.checkouts, row.paid_orders, row.revenue_inr, row.unpaid_24h].map((value, index) => {
+                      const m = ([null, null, null, "carts", "checkouts", "paid", "paid", "unpaid"] as const)[index];
+                      const formatted = countFormat.format(Number(value));
+                      return <td key={index} className="p-2 tabular-nums">{m && Number(value) > 0
+                        ? <a className="underline" href={detailLink(m, tags)}
+                            aria-label={`View ${metricLabels[m]} records for ${tags.utm_source || "unattributed traffic"}`}>{formatted}</a>
+                        : formatted}</td>;
+                    })}
                   </tr>;
                 })}</tbody>
               </table>
             </div>
           )}
+        </section>
+      )}
+      {metric && group && details && (
+        <section id="campaign-records" className="mt-8 scroll-mt-24">
+          <h2 className="font-display text-xl font-bold">{metricLabels[metric]}</h2>
+          <p className="my-2 text-sm text-ink/70">
+            {[group.utm_source || "Unattributed", group.utm_campaign, group.ad_id && `Ad ${group.ad_id}`].filter(Boolean).join(" · ")}.
+            Contact details appear only where MindCafe already has them. Check contact permission before outreach.
+            {metric === "unpaid" && " Some carts may have paid after the 24-hour window. Check payment status before contacting anyone."}
+          </p>
+          {details.error && <p role="alert">Unable to load campaign records.</p>}
+          {details.data?.length === 0 && <p>No matching records on this page.</p>}
+          {!!details.data?.length && <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead><tr>{["Time (IST)", "Cart attempt", "Customer", "Phone", "Email", "Order", "Payment", "Order total (INR)"].map(label =>
+                <th key={label} scope="col" className="border-b p-2">{label}</th>)}</tr></thead>
+              <tbody>{details.data.map(row => <tr key={row.attempt_id ?? row.order_number} className="border-b">
+                <td className="p-2">{detailsDate.format(new Date(row.happened_at))}</td>
+                <td className="p-2">{row.attempt_id ?? "—"}</td>
+                <td className="p-2">{row.customer_name || (row.phone || row.email ? "Name unavailable" : "No contact on file")}</td>
+                <td className="p-2">{row.phone ?? "—"}</td>
+                <td className="p-2">{row.email ?? "—"}</td>
+                <td className="p-2">{row.order_number ?? "—"}</td>
+                <td className="p-2">{row.payment_status?.replaceAll("_", " ") ?? "No order"}{row.paid_at && ` · ${detailsDate.format(new Date(row.paid_at))}`}</td>
+                <td className="p-2">{row.total_inr == null ? "—" : countFormat.format(Number(row.total_inr))}</td>
+              </tr>)}</tbody>
+            </table>
+          </div>}
+          <nav className="mt-3 flex gap-4" aria-label="Campaign record pages">
+            {offset > 0 && <a className="underline" href={detailLink(metric, group, offset / 50 - 1)}>Previous</a>}
+            {Number(details.data?.[0]?.total_rows ?? 0) > offset + 50 &&
+              <a className="underline" href={detailLink(metric, group, offset / 50 + 1)}>Next</a>}
+          </nav>
         </section>
       )}
     </section>
